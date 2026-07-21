@@ -27,23 +27,6 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
-# Monkey-patch: fix CRLF prepare_command crash in ffmpeg_kit
-require 'cocoapods'
-module Pod
-  class Installer
-    class PodSourcePreparer
-      alias old_run_prepare_command run_prepare_command
-      def run_prepare_command
-        Dir.glob(File.join(spec.root, '**', '*.sh')).each do |script|
-          content = File.binread(script) rescue next
-          File.binwrite(script, content.gsub("\r\n", "\n")) if content.include?("\r")
-        end
-        old_run_prepare_command
-      end
-    end
-  end
-end
-
 def patch_device_info_plus_vision_selector
   plugin_file = File.join(
     __dir__,
@@ -79,7 +62,21 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
+  # Install ALL pods EXCEPT ffmpeg_kit (we handle it manually below)
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  
+  # Override ffmpeg_kit with a CRLF-safe prepare_command
+  pod 'ffmpeg_kit_flutter_new_full', :podspec => File.join(
+    File.dirname(File.realpath(__FILE__)),
+    '.symlinks', 'plugins', 'ffmpeg_kit_flutter_new_full', 'ios',
+    'ffmpeg_kit_flutter_new_full.podspec'
+  ) do |s|
+    s.prepare_command = 'true'
+  end
+end
+
+target 'RunnerTests' do
+  inherit! :search_paths
 end
 
 post_install do |installer|
