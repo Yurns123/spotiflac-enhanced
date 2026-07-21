@@ -12,7 +12,7 @@ on:
           - unsigned
           - appstore
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'lib/**'
       - 'go_backend/**'
