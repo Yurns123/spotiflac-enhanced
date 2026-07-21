@@ -76,6 +76,11 @@ jobs:
       - name: Build Runner code
         run: dart run build_runner build --delete-conflicting-outputs || true
 
+      - name: Fix line endings
+        run: |
+          find . -type f \( -name '*.sh' -o -name '*.py' -o -name '*.rb' \) -exec sed -i '' 's/\r$//' {} + 2>/dev/null || true
+          echo "Line endings fixed"
+
       - name: Build iOS (unsigned)
         if: ${{ github.event.inputs.build_type != 'appstore' }}
         run: |
