@@ -62,17 +62,7 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
-  # Install ALL pods EXCEPT ffmpeg_kit (we handle it manually below)
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-  
-  # Override ffmpeg_kit with a CRLF-safe prepare_command
-  pod 'ffmpeg_kit_flutter_new_full', :podspec => File.join(
-    File.dirname(File.realpath(__FILE__)),
-    '.symlinks', 'plugins', 'ffmpeg_kit_flutter_new_full', 'ios',
-    'ffmpeg_kit_flutter_new_full.podspec'
-  ) do |s|
-    s.prepare_command = 'true'
-  end
 end
 
 target 'RunnerTests' do

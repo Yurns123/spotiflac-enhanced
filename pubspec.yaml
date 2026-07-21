@@ -55,7 +55,7 @@ dependencies:
   receive_sharing_intent: ^1.9.0
   logger: ^2.5.0
 
-  # FFmpeg for audio conversion
+  # FFmpeg for audio conversion (not needed on iOS with Go backend)
   ffmpeg_kit_flutter_new_full: ^2.1.0
   open_filex: ^4.7.0
 

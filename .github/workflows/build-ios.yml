@@ -27,13 +27,9 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - name: Configure git line endings
-        run: git config --global core.autocrlf input
-
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ─── Go Backend ─────────────────────────────────
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -49,6 +45,8 @@ jobs:
 
       - name: Build Go XCFramework
         working-directory: go_backend
+        env:
+          CGO_ENABLED: 1
         run: |
           go mod download
           go mod tidy
@@ -58,15 +56,9 @@ jobs:
 
       - name: Verify XCFramework
         run: |
-          if [ -d ios/Frameworks/Gobackend.xcframework ]; then
-            echo "XCFramework built successfully"
-            ls -la ios/Frameworks/Gobackend.xcframework/
-          else
-            echo "ERROR: XCFramework not found"
-            exit 1
-          fi
+          ls -la ios/Frameworks/
+          ls -la ios/Frameworks/Gobackend.xcframework/ || (echo "ERROR: XCFramework not found!" && exit 1)
 
-      # ─── Flutter ────────────────────────────────────
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -79,29 +71,37 @@ jobs:
       - name: Build Runner code
         run: dart run build_runner build --delete-conflicting-outputs || true
 
-      - name: Fix CRLF and prepare CocoaPods
+      - name: Fix CRLF in ffmpeg_kit scripts
         run: |
-          set -e
-          # Prevent git from converting LF to CRLF
-          git config --global core.autocrlf input
-          # Fix any existing CRLF in the repo
-          find . -type f \( -name '*.sh' -o -name '*.rb' -o -name '*.py' \) -exec sed -i '' 's/\r$//' {} \; 2>/dev/null || true
-          # Clean any cached CocoaPods pods from previous runs
-          rm -rf ~/Library/Caches/CocoaPods/Pods/Release/ffmpeg_kit_flutter_new_full 2>/dev/null || true
-          # Run pod deintegrate to clean previous state
-          cd ios && pod deintegrate 2>/dev/null || true
-          echo "CRLF setup done"
+          find "$HOME/.pub-cache/hosted" -path "*ffmpeg_kit_flutter_new_full*/scripts/*.sh" -type f -print0 |
+            while IFS= read -r -d '' f; do
+              perl -pi -e 's/\r$//' "$f"
+              chmod +x "$f"
+              echo "Normalized: $f"
+            done
 
       - name: Build iOS (unsigned)
         if: ${{ github.event.inputs.build_type != 'appstore' }}
         run: |
-          flutter build ios --no-codesign --release
+          flutter build ios --release --no-codesign --config-only
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Runner.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=""
+          cd ..
           mkdir -p build/ios/ipa/Payload
-          cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cp -R ios/build/Runner.xcarchive/Products/Applications/Runner.app build/ios/ipa/Payload/
           cd build/ios/ipa
           zip -qr ../../SpotiFLAC-unsigned.ipa Payload/
-          cd ../../..
-          echo "IPA created: $(du -h build/ios/SpotiFLAC-unsigned.ipa | cut -f1)"
+          cd ../..
 
       - name: Build iOS (App Store)
         if: ${{ github.event.inputs.build_type == 'appstore' }}
@@ -110,7 +110,6 @@ jobs:
         env:
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
 
-      # ─── Upload ─────────────────────────────────────
       - name: Upload unsigned IPA
         if: ${{ github.event.inputs.build_type != 'appstore' }}
         uses: actions/upload-artifact@v4
@@ -118,7 +117,6 @@ jobs:
           name: SpotiFLAC-unsigned-IPA
           path: build/ios/SpotiFLAC-unsigned.ipa
           retention-days: 7
-          compression-level: 0
 
       - name: Upload App Store IPA
         if: ${{ github.event.inputs.build_type == 'appstore' }}
@@ -127,20 +125,11 @@ jobs:
           name: SpotiFLAC-AppStore-IPA
           path: build/ios/ipa/*.ipa
           retention-days: 7
-          compression-level: 0
 
-      # ─── Summary ────────────────────────────────────
       - name: Build Summary
         run: |
+          IPA_SIZE=$(du -h build/ios/SpotiFLAC-unsigned.ipa 2>/dev/null | cut -f1 || echo "N/A")
           echo "### SpotiFLAC Enhanced - iOS Build Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Features in this build:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Progressive FLAC streaming" >> $GITHUB_STEP_SUMMARY
-          echo "- Background preloading (N+1, N+2)" >> $GITHUB_STEP_SUMMARY
-          echo "- Hybrid mode (lossy → FLAC auto-switch)" >> $GITHUB_STEP_SUMMARY
-          echo "- Apple Music-style UI" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Installation:**" >> $GITHUB_STEP_SUMMARY
-          echo "1. Download the IPA artifact below" >> $GITHUB_STEP_SUMMARY
-          echo "2. Import into SideStore or AltStore" >> $GITHUB_STEP_SUMMARY
-          echo "3. Valid for 7 days with free Apple ID" >> $GITHUB_STEP_SUMMARY
+          echo "**Size:** $IPA_SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "**Features:** Progressive FLAC streaming, Background preloading, Hybrid mode, Apple Music UI" >> $GITHUB_STEP_SUMMARY
+          echo "**Install:** Sideload via SideStore/AltStore (7-day cert)" >> $GITHUB_STEP_SUMMARY
