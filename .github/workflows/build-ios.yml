@@ -27,6 +27,9 @@ jobs:
     timeout-minutes: 45
 
     steps:
+      - name: Configure git line endings
+        run: git config --global core.autocrlf input
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -78,8 +81,11 @@ jobs:
 
       - name: Fix line endings
         run: |
-          find . -type f \( -name '*.sh' -o -name '*.py' -o -name '*.rb' \) -exec sed -i '' 's/\r$//' {} + 2>/dev/null || true
-          echo "Line endings fixed"
+          openssl version
+          find . -type f -name '*.sh' -exec sed -i '' 's/\r$//' {} + 2>/dev/null || true
+          find . -type f -name '*.rb' -exec sed -i '' 's/\r$//' {} + 2>/dev/null || true
+          find .symlinks -type f -name '*.sh' -exec sed -i '' 's/\r$//' {} + 2>/dev/null || true
+          echo "Line endings fixed OK"
 
       - name: Build iOS (unsigned)
         if: ${{ github.event.inputs.build_type != 'appstore' }}

@@ -68,6 +68,17 @@ target 'Runner' do
   # Note: ffmpeg-kit-flutter-new already includes this, but we specify for clarity
 end
 
+# Fix CRLF issues in pod scripts (caused by Windows git checkout)
+pre_install do |installer|
+  Dir.glob(File.join(installer.sandbox.root, '**', '*.sh')).each do |script|
+    content = File.read(script, mode: 'rb')
+    if content.start_with?("#!/bin/bash\r")
+      File.write(script, content.gsub("\r\n", "\n"), mode: 'wb')
+      Pod::UI.puts "Fixed CRLF in: #{script}"
+    end
+  end
+end
+
 target 'RunnerTests' do
   inherit! :search_paths
 end
