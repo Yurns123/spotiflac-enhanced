@@ -26,7 +26,13 @@ import 'package:spotiflac_android/utils/logger.dart';
 
 final _log = AppLogger('AMShell');
 
-final currentAMTabProvider = StateProvider<int>((ref) => 0);
+final currentAMTabProvider = NotifierProvider<CurrentAMTabNotifier, int>(CurrentAMTabNotifier.new);
+
+class CurrentAMTabNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void set(int index) => state = index;
+}
 
 class AMShell extends ConsumerStatefulWidget {
   const AMShell({super.key});
@@ -94,7 +100,7 @@ class _AMShellState extends ConsumerState<AMShell> with TickerProviderStateMixin
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final queueCount = ref.watch(downloadQueueProvider.select((s) => s.queuedCount));
-    final mediaItem = ref.watch(currentMediaItemProvider).valueOrNull;
+    final mediaItem = ref.watch(currentMediaItemProvider).value;
 
     return PopScope(
       canPop: false,

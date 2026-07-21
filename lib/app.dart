@@ -4,7 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:spotiflac_android/constants/app_info.dart';
 import 'package:spotiflac_android/screens/main_shell.dart';
-import 'package:spotiflac_android/screens/am_shell.dart';
+// import 'package:spotiflac_android/screens/am_shell.dart'; // TODO: fix Riverpod 3.x API
 import 'package:spotiflac_android/screens/setup_screen.dart';
 import 'package:spotiflac_android/screens/tutorial_screen.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
@@ -12,7 +12,13 @@ import 'package:spotiflac_android/services/app_navigation_service.dart';
 import 'package:spotiflac_android/theme/dynamic_color_wrapper.dart';
 import 'package:spotiflac_android/l10n/app_localizations.dart';
 
-final useAppleMusicUISettingProvider = StateProvider<bool>((ref) => true);
+class UseAppleMusicUINotifier extends Notifier<bool> {
+  @override
+  bool build() => false; // TODO: enable after fixing AM UI files
+  void toggle() => state = !state;
+}
+
+final useAppleMusicUISettingProvider = NotifierProvider<UseAppleMusicUINotifier, bool>(UseAppleMusicUINotifier.new);
 
 final _routerProvider = Provider<GoRouter>((ref) {
   final isFirstLaunch = ref.watch(
@@ -21,7 +27,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
   final hasCompletedTutorial = ref.watch(
     settingsProvider.select((s) => s.hasCompletedTutorial),
   );
-  final useAppleMusicUI = ref.watch(useAppleMusicUISettingProvider);
+  final useAppleMusicUI = false; // ref.watch(useAppleMusicUISettingProvider); // TODO: re-enable
 
   String initialLocation;
   if (isFirstLaunch) {
