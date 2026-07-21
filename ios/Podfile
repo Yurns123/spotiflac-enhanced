@@ -27,6 +27,23 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
+# Monkey-patch: fix CRLF prepare_command crash in ffmpeg_kit
+require 'cocoapods'
+module Pod
+  class Installer
+    class PodSourcePreparer
+      alias old_run_prepare_command run_prepare_command
+      def run_prepare_command
+        Dir.glob(File.join(spec.root, '**', '*.sh')).each do |script|
+          content = File.binread(script) rescue next
+          File.binwrite(script, content.gsub("\r\n", "\n")) if content.include?("\r")
+        end
+        old_run_prepare_command
+      end
+    end
+  end
+end
+
 def patch_device_info_plus_vision_selector
   plugin_file = File.join(
     __dir__,
@@ -63,24 +80,6 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-  
-  # FFmpeg for audio conversion (full version with all codecs)
-  # Note: ffmpeg-kit-flutter-new already includes this, but we specify for clarity
-end
-
-# Fix CRLF issues in pod scripts (caused by Windows git checkout)
-pre_install do |installer|
-  Dir.glob(File.join(installer.sandbox.root, '**', '*.sh')).each do |script|
-    content = File.read(script, mode: 'rb')
-    if content.start_with?("#!/bin/bash\r")
-      File.write(script, content.gsub("\r\n", "\n"), mode: 'wb')
-      Pod::UI.puts "Fixed CRLF in: #{script}"
-    end
-  end
-end
-
-target 'RunnerTests' do
-  inherit! :search_paths
 end
 
 post_install do |installer|

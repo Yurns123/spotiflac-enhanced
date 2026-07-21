@@ -79,13 +79,18 @@ jobs:
       - name: Build Runner code
         run: dart run build_runner build --delete-conflicting-outputs || true
 
-      - name: Fix line endings
+      - name: Fix CRLF and prepare CocoaPods
         run: |
-          openssl version
-          find . -type f -name '*.sh' -exec sed -i '' 's/\r$//' {} + 2>/dev/null || true
-          find . -type f -name '*.rb' -exec sed -i '' 's/\r$//' {} + 2>/dev/null || true
-          find .symlinks -type f -name '*.sh' -exec sed -i '' 's/\r$//' {} + 2>/dev/null || true
-          echo "Line endings fixed OK"
+          set -e
+          # Prevent git from converting LF to CRLF
+          git config --global core.autocrlf input
+          # Fix any existing CRLF in the repo
+          find . -type f \( -name '*.sh' -o -name '*.rb' -o -name '*.py' \) -exec sed -i '' 's/\r$//' {} \; 2>/dev/null || true
+          # Clean any cached CocoaPods pods from previous runs
+          rm -rf ~/Library/Caches/CocoaPods/Pods/Release/ffmpeg_kit_flutter_new_full 2>/dev/null || true
+          # Run pod deintegrate to clean previous state
+          cd ios && pod deintegrate 2>/dev/null || true
+          echo "CRLF setup done"
 
       - name: Build iOS (unsigned)
         if: ${{ github.event.inputs.build_type != 'appstore' }}
