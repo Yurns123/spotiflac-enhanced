@@ -1,0 +1,131 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        type: choice
+        default: 'unsigned'
+        options:
+          - unsigned
+          - appstore
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'go_backend/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'ios/**'
+      - '.github/workflows/build-ios.yml'
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ─── Go Backend ─────────────────────────────────
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: go_backend/go.sum
+
+      - name: Install gomobile
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
+          gomobile init
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Build Go XCFramework
+        working-directory: go_backend
+        run: |
+          go mod download
+          go mod tidy
+          go build ./...
+          mkdir -p ../ios/Frameworks
+          gomobile bind -target=ios -o ../ios/Frameworks/Gobackend.xcframework .
+
+      - name: Verify XCFramework
+        run: |
+          if [ -d ios/Frameworks/Gobackend.xcframework ]; then
+            echo "XCFramework built successfully"
+            ls -la ios/Frameworks/Gobackend.xcframework/
+          else
+            echo "ERROR: XCFramework not found"
+            exit 1
+          fi
+
+      # ─── Flutter ────────────────────────────────────
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build Runner code
+        run: dart run build_runner build --delete-conflicting-outputs || true
+
+      - name: Build iOS (unsigned)
+        if: ${{ github.event.inputs.build_type != 'appstore' }}
+        run: |
+          flutter build ios --no-codesign --release
+          mkdir -p build/ios/ipa/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -qr ../../SpotiFLAC-unsigned.ipa Payload/
+          cd ../../..
+          echo "IPA created: $(du -h build/ios/SpotiFLAC-unsigned.ipa | cut -f1)"
+
+      - name: Build iOS (App Store)
+        if: ${{ github.event.inputs.build_type == 'appstore' }}
+        run: |
+          flutter build ipa --release --export-method app-store
+        env:
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+
+      # ─── Upload ─────────────────────────────────────
+      - name: Upload unsigned IPA
+        if: ${{ github.event.inputs.build_type != 'appstore' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotiFLAC-unsigned-IPA
+          path: build/ios/SpotiFLAC-unsigned.ipa
+          retention-days: 7
+          compression-level: 0
+
+      - name: Upload App Store IPA
+        if: ${{ github.event.inputs.build_type == 'appstore' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotiFLAC-AppStore-IPA
+          path: build/ios/ipa/*.ipa
+          retention-days: 7
+          compression-level: 0
+
+      # ─── Summary ────────────────────────────────────
+      - name: Build Summary
+        run: |
+          echo "### SpotiFLAC Enhanced - iOS Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Features in this build:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Progressive FLAC streaming" >> $GITHUB_STEP_SUMMARY
+          echo "- Background preloading (N+1, N+2)" >> $GITHUB_STEP_SUMMARY
+          echo "- Hybrid mode (lossy → FLAC auto-switch)" >> $GITHUB_STEP_SUMMARY
+          echo "- Apple Music-style UI" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Installation:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download the IPA artifact below" >> $GITHUB_STEP_SUMMARY
+          echo "2. Import into SideStore or AltStore" >> $GITHUB_STEP_SUMMARY
+          echo "3. Valid for 7 days with free Apple ID" >> $GITHUB_STEP_SUMMARY

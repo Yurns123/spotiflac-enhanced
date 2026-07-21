@@ -1,0 +1,89 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.cursorignore
+.cursorrules
+
+# Kiro specs (development only)
+.kiro/
+
+# Design assets (banners, mockups)
+design/
+
+# Reference folder (development only)
+referensi/
+
+# Documentation (development only, published separately)
+docs/
+
+# Old spotiflac_android folder (moved to root)
+spotiflac_android/
+
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+*.lock
+!pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+*.apk
+
+# Go backend build artifacts
+go_backend/*.aar
+go_backend/*.jar
+go_backend/*.exe
+go_backend/*.xcframework/
+
+# Android
+android/.gradle/
+android/app/libs/gobackend.aar
+android/app/libs/gobackend-sources.jar
+android/local.properties
+android/*.iml
+android/key.properties
+android/*.jks
+android/*.keystore
+android/app/*.jks
+
+# iOS
+ios/Frameworks/
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Flutter.podspec
+
+# Extension folder
+extension/*
+extension/v2/
+extension/v2/**
+
+# Agent instructions
+AGENTS.md
+
+# Temp/misc
+.tmp/
+nul
+NUL
+network_requests.txt
+*.bak
+/AndroidManifest.xml
+
+# Log files
+*.log
+hs_err_*.log
+flutter_*.log
+
+# Development tools
+tool/
+.claude/settings.local.json
+.playwright-mcp/
+
+# FVM Version Cache
+.fvm/
